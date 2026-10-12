@@ -28,6 +28,21 @@ Open <https://localhost:8443/> (accept the self-signed certificate). Within ~20 
 | App upgrade | node page → `node-1.1.0.jar` | 1.0.0 → 1.1.0; `UPGRADE_STARTED`, `UPGRADE_COMPLETED` |
 | Logs | `docker exec node-ubuntu journalctl -u scanning-node -f` | heartbeat and task log |
 
+### App upgrade 1.0.0 → 1.1.0
+
+Click *Upgrade* on a node page, or run the same request from a terminal:
+
+```bash
+ID=$(docker exec node-ubuntu grep -oE '[0-9a-f-]{36}' /var/lib/scanning-node/identity.json | head -1)
+curl -sk -d artifact=node-1.1.0.jar https://localhost:8443/nodes/$ID/upgrade   # queue the upgrade
+docker exec node-ubuntu readlink /opt/scanning-node/current                      # ~40 s later: releases/1.1.0/node.jar
+```
+
+The node downloads the JAR, verifies its SHA-256, swaps it in and restarts itself; same node ID,
+no manual step ([plan.md §6](plan.md)):
+
+![App upgrade: version 1.1.0, upgrade task DONE, audit UPGRADE_STARTED → STARTED app 1.1.0 → UPGRADE_COMPLETED](docs/screenshots/app-upgrade.png)
+
 **Not demonstrated:** the nmap binary upgrade is implemented and unit-tested, but no newer nmap
 package installs on Ubuntu 22.04 arm64 ([plan.md §6](plan.md)).
 
