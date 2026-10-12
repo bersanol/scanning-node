@@ -27,4 +27,3 @@ This is an interview project: keep it concise. Prefer fewer classes with one cle
 - All node→manager writes must be idempotent (keyed by `taskId` / `eventId`); retries must never create duplicates.
 - Node state transitions are written to disk before being acknowledged to the manager.
 - Never pass scan targets through a shell; validate as IP/CIDR and use `ProcessBuilder` args.
-- The nmap upgrade installs a downloaded OS package with `apt-get install -y <file>` / `dnf install -y <file>` (resolves dependencies), not source builds.

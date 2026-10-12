@@ -15,5 +15,4 @@ public interface TaskRepository extends JpaRepository<Task, String> {
 
     List<Task> findByNodeIdOrderByCreatedAtDesc(String nodeId);
 
-    List<Task> findAllByOrderByCreatedAtDesc();
 }

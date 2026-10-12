@@ -46,3 +46,5 @@ manager.log
 .idea/
 # Exercise text from the company: kept local, not published
 requirements.md
+# Local to-do / requirements checklist: not published
+docs/requirements-status.md

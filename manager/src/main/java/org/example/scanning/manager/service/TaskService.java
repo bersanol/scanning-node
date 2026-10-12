@@ -12,6 +12,9 @@ import org.example.scanning.manager.repository.TaskRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -173,8 +176,8 @@ public class TaskService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "task " + taskId));
     }
 
-    public List<Task> all() {
-        return tasks.findAllByOrderByCreatedAtDesc();
+    public Page<Task> page(int page, int size) {
+        return tasks.findAll(PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
     }
 
     public List<Task> forNode(String nodeId) {

@@ -5,6 +5,7 @@ import org.example.scanning.manager.model.Task;
 import org.example.scanning.manager.service.NodeService;
 import org.example.scanning.manager.service.TaskService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -37,6 +38,9 @@ public class DashboardController {
     public record Release(String file, String component, String version, String url, String sha256) {
     }
 
+    /** Rows per table page: the fleet (~3,000 nodes) and the task/event history are never loaded whole. */
+    static final int PAGE_SIZE = 50;
+
     private static final Pattern VERSION = Pattern.compile("(\\d+\\.\\d+(?:\\.\\d+)?)");
 
     private final NodeService nodes;
@@ -51,12 +55,14 @@ public class DashboardController {
     }
 
     @GetMapping("/")
-    public String index(Model model) {
-        List<Node> all = nodes.all();
-        model.addAttribute("nodes", all);
-        model.addAttribute("online", all.stream().collect(Collectors.toMap(Node::getId, nodes::isOnline)));
-        model.addAttribute("onlineCount", all.stream().filter(nodes::isOnline).count());
-        model.addAttribute("tasks", tasks.all());
+    public String index(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "0") int taskPage,
+                        Model model) {
+        Page<Node> nodePage = nodes.page(Math.max(page, 0), PAGE_SIZE);
+        model.addAttribute("nodes", nodePage);
+        model.addAttribute("online", nodePage.stream().collect(Collectors.toMap(Node::getId, nodes::isOnline)));
+        model.addAttribute("registered", nodes.count());
+        model.addAttribute("onlineCount", nodes.onlineCount());
+        model.addAttribute("tasks", tasks.page(Math.max(taskPage, 0), PAGE_SIZE));
         model.addAttribute("enrollmentToken", nodes.enrollmentToken());
         return "index";
     }
@@ -81,8 +87,8 @@ public class DashboardController {
     }
 
     @GetMapping("/audit")
-    public String audit(Model model) {
-        model.addAttribute("events", nodes.allEvents());
+    public String audit(@RequestParam(defaultValue = "0") int page, Model model) {
+        model.addAttribute("events", nodes.eventsPage(Math.max(page, 0), PAGE_SIZE));
         return "audit";
     }
 

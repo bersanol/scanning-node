@@ -48,8 +48,18 @@ public class ManagerClient {
         return post("api/v1/nodes/" + id.nodeId() + "/heartbeat", id, heartbeat, HeartbeatResponse.class, Duration.ofSeconds(45));
     }
 
-    public Ack postResult(Identity id, String taskId, TaskResult result) throws IOException, InterruptedException {
-        return post("api/v1/tasks/" + taskId + "/result", id, result, Ack.class, Duration.ofSeconds(30));
+    /**
+     * Returns false if the manager rejects the result for good: 404 (task unknown, e.g. its database
+     * was reset) or 403 (task belongs to another node). Retrying cannot help, so the caller drops it.
+     */
+    public boolean postResult(Identity id, String taskId, TaskResult result) throws IOException, InterruptedException {
+        String path = "api/v1/tasks/" + taskId + "/result";
+        HttpResponse<String> response = send(path, id, result, Duration.ofSeconds(30));
+        if (response.statusCode() == 403 || response.statusCode() == 404) {
+            return false;
+        }
+        check(path, response);
+        return true;
     }
 
     public Ack postEvents(Identity id, List<Event> events) throws IOException, InterruptedException {
@@ -71,6 +81,13 @@ public class ManagerClient {
 
     private <T> T post(String path, Identity id, Object body, Class<T> type, Duration timeout)
             throws IOException, InterruptedException {
+        HttpResponse<String> response = send(path, id, body, timeout);
+        check(path, response);
+        return json.readValue(response.body(), type);
+    }
+
+    private HttpResponse<String> send(String path, Identity id, Object body, Duration timeout)
+            throws IOException, InterruptedException {
         HttpRequest.Builder request = HttpRequest.newBuilder(base.resolve(path))
                 .timeout(timeout)
                 .header("Content-Type", "application/json")
@@ -78,10 +95,12 @@ public class ManagerClient {
         if (id != null) {
             request.header("Authorization", "Bearer " + id.nodeId() + ":" + id.secret());
         }
-        HttpResponse<String> response = http.send(request.build(), HttpResponse.BodyHandlers.ofString());
+        return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private static void check(String path, HttpResponse<String> response) throws IOException {
         if (response.statusCode() / 100 != 2) {
             throw new IOException("POST " + path + " failed: HTTP " + response.statusCode() + " " + response.body());
         }
-        return json.readValue(response.body(), type);
     }
 }

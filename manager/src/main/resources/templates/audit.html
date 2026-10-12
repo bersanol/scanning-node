@@ -17,5 +17,6 @@
     </tr>
     <tr th:if="${events.isEmpty()}"><td colspan="5" class="muted">No events yet.</td></tr>
 </table>
+<p th:replace="~{fragments :: pager(${events}, @{/audit(page=${events.number - 1})}, @{/audit(page=${events.number + 1})})}"></p>
 </body>
 </html>

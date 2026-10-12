@@ -89,7 +89,6 @@ public class Agent {
         }
         try {
             Identity id = ensureEnrolled();
-            flushOutbox(id);
             List<String> held = state.heldTasks().stream().map(Protocol.Task::taskId).toList();
             HeartbeatResponse response = client.heartbeat(id, new Heartbeat(hostname(), os(), appVersion, nmapVersion, held));
             finishUpgradeIfAny();
@@ -97,6 +96,8 @@ public class Agent {
             if (response.task() != null && !held.contains(response.task().taskId())) {
                 accept(response.task());
             }
+            // After the heartbeat, so an undeliverable outbox can never make the node look offline.
+            flushOutbox(id);
         } catch (Exception e) {
             // Exponential backoff with jitter: 10 s, 20 s, ... capped at 5 min, so 3,000 nodes do not
             // hammer a manager that is coming back up.
@@ -125,7 +126,10 @@ public class Agent {
     private void flushOutbox(Identity id) throws IOException, InterruptedException {
         for (Path file : state.pendingResults()) {
             TaskResult result = state.read(file, TaskResult.class).orElseThrow();
-            client.postResult(id, NodeState.taskIdOf(file), result);
+            if (!client.postResult(id, NodeState.taskIdOf(file), result)) {
+                log.warn("Manager rejected the result of task {} for good (unknown task or not ours); dropping it",
+                        NodeState.taskIdOf(file));
+            }
             state.delete(file);
         }
         List<Path> eventFiles = state.pendingEvents();

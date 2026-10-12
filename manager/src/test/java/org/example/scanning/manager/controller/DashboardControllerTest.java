@@ -8,6 +8,9 @@ import org.example.scanning.manager.service.TaskService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -42,8 +45,11 @@ class DashboardControllerTest {
         node.setAppVersion("1.0.0");
         node.setNmapVersion("7.80");
         node.setLastSeen(Instant.now());
-        when(nodes.all()).thenReturn(List.of(node));
+        when(nodes.page(0, DashboardController.PAGE_SIZE)).thenReturn(new PageImpl<>(List.of(node)));
+        when(nodes.count()).thenReturn(1L);
+        when(nodes.onlineCount()).thenReturn(1L);
         when(nodes.isOnline(node)).thenReturn(true);
+        when(tasks.page(0, DashboardController.PAGE_SIZE)).thenReturn(Page.empty());
         when(nodes.enrollmentToken()).thenReturn("tok-123");
 
         mvc.perform(get("/"))
@@ -52,6 +58,32 @@ class DashboardControllerTest {
                 .andExpect(content().string(containsString(">online<")))
                 .andExpect(content().string(containsString("7.80")))
                 .andExpect(content().string(containsString("tok-123")));
+    }
+
+    @Test
+    void largeFleetIsPagedAndCountedByTheDatabase() throws Exception {
+        Node node = new Node("node-51", "hash");
+        when(nodes.page(1, DashboardController.PAGE_SIZE))
+                .thenReturn(new PageImpl<>(List.of(node), PageRequest.of(1, DashboardController.PAGE_SIZE), 3000));
+        when(nodes.count()).thenReturn(3000L);
+        when(nodes.onlineCount()).thenReturn(2990L);
+        when(tasks.page(0, DashboardController.PAGE_SIZE)).thenReturn(Page.empty());
+
+        mvc.perform(get("/").param("page", "1"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString(">3000</strong> registered")))
+                .andExpect(content().string(containsString(">10</strong> offline")))
+                .andExpect(content().string(containsString("Page <span>2</span> of <span>60</span>")))
+                .andExpect(content().string(containsString("/?page=2&amp;taskPage=0")));
+    }
+
+    @Test
+    void auditIsPaged() throws Exception {
+        when(nodes.eventsPage(0, DashboardController.PAGE_SIZE)).thenReturn(Page.empty());
+
+        mvc.perform(get("/audit").param("page", "-1"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("No events yet.")));
     }
 
     @Test

@@ -12,6 +12,9 @@ import org.example.scanning.manager.repository.NodeRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -123,12 +126,18 @@ public class NodeService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "node " + nodeId));
     }
 
-    public List<Node> all() {
-        return nodes.findAllByOrderByEnrolledAtAsc();
+    /** One page of the fleet, oldest enrollment first; the dashboard never loads all nodes at once. */
+    public Page<Node> page(int page, int size) {
+        return nodes.findAll(PageRequest.of(page, size, Sort.by("enrolledAt", "id")));
     }
 
+    public long count() {
+        return nodes.count();
+    }
+
+    /** Same rule as {@link #isOnline}, counted by the database (indexed on last_seen). */
     public long onlineCount() {
-        return all().stream().filter(this::isOnline).count();
+        return nodes.countByLastSeenAfter(Instant.now().minus(offlineAfter));
     }
 
     /** Stores unseen events; replays of the same eventId count as duplicates. */
@@ -152,8 +161,8 @@ public class NodeService {
         return events.findByNodeIdOrderByOccurredAtDesc(nodeId);
     }
 
-    public List<AuditEvent> allEvents() {
-        return events.findAllByOrderByOccurredAtDesc();
+    public Page<AuditEvent> eventsPage(int page, int size) {
+        return events.findAll(PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "occurredAt")));
     }
 
     static String randomSecret() {

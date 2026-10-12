@@ -11,5 +11,4 @@ public interface AuditEventRepository extends JpaRepository<AuditEvent, Long> {
 
     List<AuditEvent> findByNodeIdOrderByOccurredAtDesc(String nodeId);
 
-    List<AuditEvent> findAllByOrderByOccurredAtDesc();
 }

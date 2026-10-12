@@ -58,7 +58,7 @@ class AgentTest {
         state = new NodeState(dir.resolve("state"), JSON);
         when(nmap.version()).thenReturn("7.80");
         when(client.enroll(any())).thenReturn(new EnrollResponse("node-1", "s3cret"));
-        when(client.postResult(any(), any(), any())).thenReturn(new Ack(1, 0));
+        when(client.postResult(any(), any(), any())).thenReturn(true);
         when(client.postEvents(any(), anyList())).thenReturn(new Ack(1, 0));
         when(client.heartbeat(any(), any())).thenReturn(new HeartbeatResponse(null));
         // Runnable::run makes the worker synchronous so tests are deterministic.
@@ -88,10 +88,6 @@ class AgentTest {
         assertThat(state.identity()).contains(new Identity("node-1", "s3cret"));
         verify(nmap).scan("127.0.0.1");
         assertThat(state.heldTasks()).isEmpty();            // finished, removed from tasks/
-        assertThat(state.pendingResults()).hasSize(1);      // waiting in the outbox
-
-        agent.tick();                                        // next tick flushes it
-
         verify(client).postResult(eq(new Identity("node-1", "s3cret")), eq("t1"), eq(DONE));
         assertThat(state.pendingResults()).isEmpty();
     }
@@ -119,7 +115,7 @@ class AgentTest {
 
         agent.tick();
         assertThat(state.pendingResults()).hasSize(1);
-        verify(client, never()).heartbeat(any(), any());
+        verify(client, times(1)).heartbeat(any(), any());   // the heartbeat still went out first
 
         // Backoff: an immediate retry is skipped without touching the network.
         agent.tick();
@@ -134,7 +130,7 @@ class AgentTest {
         agent.tick();
 
         assertThat(state.upgradeState()).isEmpty();
-        List<Event> events = state.pendingEvents().stream().map(f -> state.read(f, Event.class).orElseThrow()).toList();
+        List<Event> events = deliveredEvents();
         assertThat(events).extracting(Event::type).containsExactly("UPGRADE_COMPLETED");
         assertThat(events.get(0).detail()).isEqualTo("0.9.0 -> 1.0.0");
     }
@@ -146,8 +142,29 @@ class AgentTest {
 
         agent.tick();
 
-        List<Event> events = state.pendingEvents().stream().map(f -> state.read(f, Event.class).orElseThrow()).toList();
-        assertThat(events).extracting(Event::type).containsExactly("UPGRADE_ROLLED_BACK");
+        assertThat(deliveredEvents()).extracting(Event::type).containsExactly("UPGRADE_ROLLED_BACK");
+    }
+
+    @Test
+    void resultTheManagerRejectsForGoodIsDroppedAndDoesNotBlockHeartbeats() throws Exception {
+        state.saveIdentity(new Identity("node-1", "s3cret"));
+        state.queueResult("gone", DONE);
+        when(client.postResult(any(), eq("gone"), any())).thenReturn(false);
+
+        agent.tick();
+        agent.tick();
+
+        assertThat(state.pendingResults()).isEmpty();
+        verify(client, times(1)).postResult(any(), eq("gone"), any());
+        verify(client, times(2)).heartbeat(any(), any());
+    }
+
+    /** Events posted to the manager during the tick (the outbox is flushed after the heartbeat). */
+    @SuppressWarnings("unchecked")
+    private List<Event> deliveredEvents() throws Exception {
+        ArgumentCaptor<List<Event>> sent = ArgumentCaptor.forClass(List.class);
+        verify(client).postEvents(any(), sent.capture());
+        return sent.getValue();
     }
 
     @Test
@@ -163,7 +180,9 @@ class AgentTest {
 
         agent.tick();
 
-        TaskResult result = state.read(state.pendingResults().get(0), TaskResult.class).orElseThrow();
+        ArgumentCaptor<TaskResult> sent = ArgumentCaptor.forClass(TaskResult.class);
+        verify(client).postResult(any(), eq("u1"), sent.capture());
+        TaskResult result = sent.getValue();
         assertThat(result.status()).isEqualTo(TaskStatus.FAILED);
         assertThat(result.error()).contains("checksum mismatch");
         assertThat(dir.resolve("app/current")).doesNotExist();

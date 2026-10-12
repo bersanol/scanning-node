@@ -89,7 +89,7 @@ class NodeServiceTest {
     }
 
     @Test
-    void availabilityIsThreeMissedHeartbeats() {
+    void availabilityIsLastHeartbeatWithinOfflineAfter() {
         Node fresh = new Node("a", "h");
         fresh.setLastSeen(Instant.now().minusSeconds(40));
         Node stale = new Node("b", "h");
@@ -98,6 +98,15 @@ class NodeServiceTest {
         assertThat(service.isOnline(fresh)).isTrue();
         assertThat(service.isOnline(stale)).isFalse();
         assertThat(service.isOnline(new Node("c", "h"))).isFalse();
+    }
+
+    @Test
+    void onlineCountIsAskedOfTheDatabaseWithTheSameCutoff() {
+        ArgumentCaptor<Instant> cutoff = ArgumentCaptor.forClass(Instant.class);
+        when(nodes.countByLastSeenAfter(cutoff.capture())).thenReturn(7L);
+
+        assertThat(service.onlineCount()).isEqualTo(7);
+        assertThat(cutoff.getValue()).isBetween(Instant.now().minusSeconds(46), Instant.now().minusSeconds(44));
     }
 
     @Test

@@ -3,12 +3,13 @@ package org.example.scanning.manager.model;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
 
 @Entity
-@Table(name = "nodes")
+@Table(name = "nodes", indexes = @Index(name = "ix_nodes_last_seen", columnList = "last_seen"))
 public class Node {
 
     @Id

@@ -6,9 +6,9 @@
 
 <h1>Scanning Manager</h1>
 <p>
-    <strong th:text="${nodes.size()}">0</strong> registered,
+    <strong th:text="${registered}">0</strong> registered,
     <strong class="on" th:text="${onlineCount}">0</strong> online,
-    <strong class="off" th:text="${nodes.size() - onlineCount}">0</strong> offline.
+    <strong class="off" th:text="${registered - onlineCount}">0</strong> offline.
     <span class="muted">A node is <em>online</em> if its last heartbeat is less than 60 s old
         (one heartbeat cycle is at most 40 s: 30 s long-poll + 10 s pause).</span>
 </p>
@@ -27,11 +27,12 @@
     </tr>
     <tr th:if="${nodes.isEmpty()}"><td colspan="7" class="muted">No nodes yet. Run the installer with the enrollment token below.</td></tr>
 </table>
+<p th:replace="~{fragments :: pager(${nodes}, @{/(page=${nodes.number - 1},taskPage=${tasks.number})}, @{/(page=${nodes.number + 1},taskPage=${tasks.number})})}"></p>
 
 <h2>New scan</h2>
 <form class="row" method="post" action="/scans">
     <label>Target <input name="target" placeholder="192.168.1.0/24" required pattern="[0-9./]+"></label>
-    <label>Node
+    <label>Node <span class="muted">(this page)</span>
         <select name="nodeId" required>
             <option th:each="n : ${nodes}" th:value="${n.id}" th:text="${n.hostname + ' (' + n.id + ')'}">node</option>
         </select>
@@ -54,6 +55,7 @@
     </tr>
     <tr th:if="${tasks.isEmpty()}"><td colspan="7" class="muted">No tasks yet.</td></tr>
 </table>
+<p th:replace="~{fragments :: pager(${tasks}, @{/(page=${nodes.number},taskPage=${tasks.number - 1})}, @{/(page=${nodes.number},taskPage=${tasks.number + 1})})}"></p>
 
 <h2>Enrolling a new node</h2>
 <p class="muted">Copy the installer bundle (<code>install.sh</code>, <code>node-start-with-rollback.sh</code>, <code>node-1.0.0.jar</code>) to a clean Ubuntu or RHEL host and run it as root. The node JAR already trusts this manager's TLS certificate (so the node can verify the manager); the installer enrolls with the token (so the manager accepts the node).</p>

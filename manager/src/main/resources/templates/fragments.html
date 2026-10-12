@@ -28,5 +28,12 @@
     <a href="/">Dashboard</a>
     <a href="/audit">Audit history</a>
 </nav>
+<!-- Page links for a Spring Data Page; shown only when there is more than one page. -->
+<p th:fragment="pager(p, prevUrl, nextUrl)" class="muted" th:if="${p.totalPages > 1}">
+    <a th:if="${p.hasPrevious()}" th:href="${prevUrl}">&larr; previous</a>
+    Page <span th:text="${p.number + 1}">1</span> of <span th:text="${p.totalPages}">1</span>
+    (<span th:text="${p.totalElements}">0</span> total)
+    <a th:if="${p.hasNext()}" th:href="${nextUrl}">next &rarr;</a>
+</p>
 </body>
 </html>
