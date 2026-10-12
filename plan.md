@@ -92,7 +92,9 @@ QUEUED → ASSIGNED → RUNNING → DONE | FAILED | INTERRUPTED
 
 **Delivery (pull only).** The manager serves `releases/` at `/releases/`; the dashboard lists each
 `node-<version>.jar` with its SHA-256. Clicking upgrade queues a task with the URL, target version
-and checksum, which the node picks up in a heartbeat like a scan.
+and checksum, which the node picks up in a heartbeat like a scan. The node then downloads the JAR
+with its own HTTPS `GET`; the file arrives as the response body, so the manager never opens a
+connection (it is a passive file server, like any website).
 
 **Steps on the node:**
 
