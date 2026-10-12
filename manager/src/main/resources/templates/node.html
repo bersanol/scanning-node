@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Node ' + ${node.hostname})}"></head>
+<body>
+<nav th:replace="~{fragments :: nav}"></nav>
+
+<h1>Node <span th:text="${node.hostname}">host</span></h1>
+<table>
+    <tr><th>Node ID</th><td class="mono" th:text="${node.id}">id</td></tr>
+    <tr><th>Status</th><td><span th:class="${isOnline} ? 'on' : 'off'" th:text="${isOnline} ? 'online' : 'offline'">status</span></td></tr>
+    <tr><th>OS</th><td th:text="${node.os}">os</td></tr>
+    <tr><th>Application version</th><td th:text="${node.appVersion}">-</td></tr>
+    <tr><th>nmap version</th><td th:text="${node.nmapVersion}">-</td></tr>
+    <tr><th>Enrolled (UTC)</th><td class="mono" th:text="${node.enrolledAt}">-</td></tr>
+    <tr><th>Last seen (UTC)</th><td class="mono" th:text="${node.lastSeen}">-</td></tr>
+</table>
+
+<h2>Scan</h2>
+<form class="row" method="post" action="/scans">
+    <input type="hidden" name="nodeId" th:value="${node.id}">
+    <label>Target <input name="target" placeholder="192.168.1.0/24" required pattern="[0-9./]+"></label>
+    <button type="submit">Run nmap</button>
+</form>
+
+<h2>Upgrade</h2>
+<p class="muted">Artifacts come from the manager's <code>releases/</code> directory. The node downloads over the same pinned HTTPS channel, verifies the SHA-256, and applies it unattended.</p>
+<form class="row" method="post" th:action="@{/nodes/{id}/upgrade(id=${node.id})}">
+    <label>Artifact
+        <select name="artifact" required>
+            <option th:each="r : ${releases}" th:value="${r.file}"
+                    th:text="${r.component + ' ' + r.version + '  (' + r.file + ')'}">release</option>
+        </select>
+    </label>
+    <button type="submit" th:disabled="${releases.isEmpty()}">Upgrade</button>
+    <span class="muted" th:if="${releases.isEmpty()}">No artifacts in releases/.</span>
+</form>
+
+<h2>Tasks</h2>
+<table>
+    <tr><th>Task</th><th>Type</th><th>Target / upgrade</th><th>Status</th><th>Created (UTC)</th><th>Finished (UTC)</th><th>Error</th></tr>
+    <tr th:each="t : ${tasks}">
+        <td><a th:href="@{/tasks/{id}(id=${t.id})}" class="mono" th:text="${#strings.abbreviate(t.id, 13)}">id</a></td>
+        <td th:text="${t.type}">SCAN</td>
+        <td th:text="${t.type.name() == 'SCAN'} ? ${t.target} : ${t.component + ' → ' + t.targetVersion}">target</td>
+        <td><span class="badge" th:classappend="${t.status}" th:text="${t.status}">status</span></td>
+        <td class="mono" th:text="${t.createdAt}">-</td>
+        <td class="mono" th:text="${t.finishedAt}">-</td>
+        <td class="muted" th:text="${t.error}"></td>
+    </tr>
+    <tr th:if="${tasks.isEmpty()}"><td colspan="7" class="muted">No tasks yet.</td></tr>
+</table>
+
+<h2>Audit history</h2>
+<table>
+    <tr><th>Occurred (UTC)</th><th>Event</th><th>Detail</th><th>Event ID</th></tr>
+    <tr th:each="e : ${events}">
+        <td class="mono" th:text="${e.occurredAt}">-</td>
+        <td th:text="${e.type}">type</td>
+        <td th:text="${e.detail}">detail</td>
+        <td class="mono muted" th:text="${#strings.abbreviate(e.eventId, 13)}">id</td>
+    </tr>
+    <tr th:if="${events.isEmpty()}"><td colspan="4" class="muted">No events yet.</td></tr>
+</table>
+</body>
+</html>

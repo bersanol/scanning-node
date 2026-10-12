@@ -1,0 +1,6 @@
+# A "clean RHEL 9 host" (Rocky Linux 9 is binary compatible; real RHEL images need a subscription
+# for nmap): the base image plus systemd as PID 1, so install.sh runs exactly as on a VM.
+FROM rockylinux:9
+RUN dnf install -y -q systemd && dnf clean all
+STOPSIGNAL SIGRTMIN+3
+CMD ["/usr/sbin/init"]

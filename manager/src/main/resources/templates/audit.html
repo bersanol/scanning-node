@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Audit history')}"></head>
+<body>
+<nav th:replace="~{fragments :: nav}"></nav>
+
+<h1>Audit history</h1>
+<p class="muted">Installation, start and upgrade events recorded on each node and synchronised on reconnection. Each event carries a node-generated ID, so events recorded offline are never duplicated.</p>
+<table>
+    <tr><th>Occurred (UTC)</th><th>Node</th><th>Event</th><th>Detail</th><th>Event ID</th></tr>
+    <tr th:each="e : ${events}">
+        <td class="mono" th:text="${e.occurredAt}">-</td>
+        <td><a th:href="@{/nodes/{id}(id=${e.nodeId})}" class="mono" th:text="${#strings.abbreviate(e.nodeId, 13)}">node</a></td>
+        <td th:text="${e.type}">type</td>
+        <td th:text="${e.detail}">detail</td>
+        <td class="mono muted" th:text="${#strings.abbreviate(e.eventId, 13)}">id</td>
+    </tr>
+    <tr th:if="${events.isEmpty()}"><td colspan="5" class="muted">No events yet.</td></tr>
+</table>
+</body>
+</html>

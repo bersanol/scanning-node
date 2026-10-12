@@ -1,0 +1,43 @@
+# Demo environment: the manager plus two clean Linux "hosts" (Ubuntu 22.04, Rocky 9 as RHEL).
+#   docker compose up -d --build              manager in Docker + both hosts (nodes use https://manager:8443)
+#   docker compose up -d node-ubuntu node-rocky   hosts only, manager runs locally
+#                                             (nodes use https://host.docker.internal:8443)
+# Both names are in the manager certificate, so TLS is fully verified. The hosts publish no ports:
+# nothing can connect into a node. Only the manager publishes 8443 (dashboard + node API).
+#
+# Hosts run systemd as PID 1 (privileged + host cgroups) so install.sh behaves as on a VM. The
+# installer bundle is mounted read-only at /installer, like a package copied to a VM; build it
+# first (demo.sh does: releases/node-1.0.0.jar).
+x-host: &host
+  privileged: true
+  cgroup: host
+  tmpfs: [/run, /run/lock]
+  extra_hosts: ["host.docker.internal:host-gateway"]
+  volumes:
+    - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    - ../install.sh:/installer/install.sh:ro
+    - ../node-start-with-rollback.sh:/installer/node-start-with-rollback.sh:ro
+    - ../../releases/node-1.0.0.jar:/installer/node-1.0.0.jar:ro
+
+services:
+  manager:
+    build: { context: ../.., target: manager }
+    container_name: manager
+    hostname: manager
+    environment:
+      SCANNING_ENROLLMENT_TOKEN: ${SCANNING_ENROLLMENT_TOKEN:-dev-token}
+    ports: ["8443:8443"]
+    volumes: [manager-data:/app/data]
+  node-ubuntu:
+    <<: *host
+    build: { context: ., dockerfile: Dockerfile.ubuntu }
+    hostname: node-ubuntu
+    container_name: node-ubuntu
+  node-rocky:
+    <<: *host
+    build: { context: ., dockerfile: Dockerfile.rocky }
+    hostname: node-rocky
+    container_name: node-rocky
+
+volumes:
+  manager-data:

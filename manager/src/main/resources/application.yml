@@ -1,0 +1,46 @@
+server:
+  port: ${SCANNING_PORT:8443}
+  ssl:
+    # Standard Spring Boot TLS with the keystore packaged in the JAR (see spring.ssl below).
+    enabled: ${SCANNING_TLS_ENABLED:true}
+    bundle: manager
+  error:
+    include-message: always
+
+spring:
+  application:
+    name: scanning-manager
+  ssl:
+    bundle:
+      jks:
+        manager:
+          # Committed once (deploy/generate-tls-keys.sh); nodes ship the matching truststore.
+          keystore:
+            location: classpath:tls/manager.p12
+            password: changeit
+            type: PKCS12
+  datasource:
+    url: jdbc:h2:file:${SCANNING_DATA_DIR:./data}/manager
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  mvc:
+    async:
+      # Must exceed scanning.long-poll so the DeferredResult timeout fires first.
+      request-timeout: 40s
+  threads:
+    virtual:
+      # Thousands of parked long-poll requests are cheap on virtual threads.
+      enabled: true
+
+scanning:
+  # Shared secret nodes present at enrollment. Generated and logged if left empty.
+  enrollment-token: ${SCANNING_ENROLLMENT_TOKEN:}
+  # A node is offline once its last heartbeat is older than this. One heartbeat cycle is at most
+  # 40 s (30 s long-poll + 10 s pause), so 60 s means a node missed a full cycle plus margin.
+  offline-after: 60s
+  # Max time a heartbeat is held open waiting for a task.
+  long-poll: 30s

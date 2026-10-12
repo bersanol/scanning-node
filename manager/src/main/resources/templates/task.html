@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Task ' + ${task.id})}"></head>
+<body>
+<nav th:replace="~{fragments :: nav}"></nav>
+
+<h1><span th:text="${task.type}">SCAN</span> task</h1>
+<table>
+    <tr><th>Task ID</th><td class="mono" th:text="${task.id}">id</td></tr>
+    <tr><th>Node</th><td><a th:href="@{/nodes/{id}(id=${task.nodeId})}" class="mono" th:text="${task.nodeId}">node</a></td></tr>
+    <tr th:if="${task.type.name() == 'SCAN'}"><th>Target</th><td class="mono" th:text="${task.target}">target</td></tr>
+    <tr th:if="${task.type.name() == 'UPGRADE'}"><th>Upgrade</th><td th:text="${task.component + ' → ' + task.targetVersion + ' from ' + task.artifactUrl}">upgrade</td></tr>
+    <tr><th>Status</th><td><span class="badge" th:classappend="${task.status}" th:text="${task.status}">status</span>
+        <span class="muted" th:if="${task.retryCount > 0}" th:text="'retried ' + ${task.retryCount} + 'x'"></span></td></tr>
+    <tr><th>Created / assigned / finished (UTC)</th>
+        <td class="mono" th:text="${task.createdAt} + ' / ' + ${task.assignedAt} + ' / ' + ${task.finishedAt}">-</td></tr>
+    <tr><th>Exit code</th><td th:text="${task.exitCode}">-</td></tr>
+    <tr th:if="${task.error}"><th>Error</th><td class="off" th:text="${task.error}">-</td></tr>
+</table>
+
+<p class="muted" th:if="${!task.status.isTerminal()}">The node reports back when the task finishes; refresh this page.</p>
+
+<div th:if="${task.type.name() == 'SCAN' and task.status.isTerminal()}">
+    <h2>Structured results</h2>
+    <table>
+        <tr><th>Host</th><th>State</th><th>Port</th><th>Protocol</th><th>Port state</th><th>Service</th></tr>
+        <th:block th:each="h : ${hosts}">
+            <tr th:if="${h.ports.isEmpty()}">
+                <td class="mono" th:text="${h.address}">addr</td><td th:text="${h.state}">state</td>
+                <td colspan="4" class="muted">no ports reported</td>
+            </tr>
+            <tr th:each="p : ${h.ports}">
+                <td class="mono" th:text="${h.address}">addr</td><td th:text="${h.state}">state</td>
+                <td th:text="${p.port}">22</td><td th:text="${p.protocol}">tcp</td>
+                <td th:text="${p.state}">open</td><td th:text="${p.service}">ssh</td>
+            </tr>
+        </th:block>
+        <tr th:if="${hosts.isEmpty()}"><td colspan="6" class="muted">No hosts in the result.</td></tr>
+    </table>
+</div>
+
+<h2>Raw output</h2>
+<pre th:text="${task.rawOutput} ?: '(none)'">raw</pre>
+</body>
+</html>

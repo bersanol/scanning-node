@@ -1,0 +1,17 @@
+{
+  "autoCompactEnabled": false,
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && echo 'Project docs (re)loaded by SessionStart hook. Follow them.' && for f in CLAUDE.md AI_USAGE.md plan.md requirements.md; do printf '\\n===== %s =====\\n' \"$f\"; [ -f \"$f\" ] && cat \"$f\"; done; true",
+            "statusMessage": "Loading project docs"
+          }
+        ]
+      }
+    ]
+  }
+}

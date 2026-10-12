@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${title}">Scanning Manager</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 1200px; color: #222; }
+        nav a { margin-right: 1.5rem; }
+        h1, h2 { margin-top: 1.5rem; }
+        table { border-collapse: collapse; width: 100%; margin: .5rem 0 1.5rem; }
+        th, td { border: 1px solid #ddd; padding: .4rem .6rem; text-align: left; font-size: .92rem; vertical-align: top; }
+        th { background: #f4f4f4; }
+        .on { color: #0a7d2a; font-weight: 600; }
+        .off { color: #b00020; font-weight: 600; }
+        .muted { color: #666; font-size: .9rem; }
+        code, .mono { font-family: ui-monospace, monospace; font-size: .88rem; }
+        code { background: #f4f4f4; padding: .1rem .3rem; }
+        pre { background: #111; color: #eee; padding: 1rem; overflow: auto; max-height: 32rem; font-size: .85rem; }
+        form.row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin: .5rem 0; }
+        input, select, button { font: inherit; padding: .3rem .5rem; }
+        .badge { padding: .1rem .45rem; border-radius: .3rem; background: #eee; font-size: .85rem; }
+        .DONE { background: #d9f2df; } .FAILED { background: #f8d7da; } .RUNNING, .ASSIGNED { background: #fff3cd; }
+    </style>
+</head>
+<body>
+<nav th:fragment="nav">
+    <a href="/">Dashboard</a>
+    <a href="/audit">Audit history</a>
+</nav>
+</body>
+</html>

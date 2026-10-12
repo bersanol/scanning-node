@@ -1,0 +1,7 @@
+**/target
+data
+local
+releases
+docs
+.idea
+*.iml

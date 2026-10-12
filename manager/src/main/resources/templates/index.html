@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Scanning Manager')}"></head>
+<body>
+<nav th:replace="~{fragments :: nav}"></nav>
+
+<h1>Scanning Manager</h1>
+<p>
+    <strong th:text="${nodes.size()}">0</strong> registered,
+    <strong class="on" th:text="${onlineCount}">0</strong> online,
+    <strong class="off" th:text="${nodes.size() - onlineCount}">0</strong> offline.
+    <span class="muted">A node is <em>online</em> if its last heartbeat is less than 60 s old
+        (one heartbeat cycle is at most 40 s: 30 s long-poll + 10 s pause).</span>
+</p>
+
+<h2>Nodes</h2>
+<table>
+    <tr><th>Node ID</th><th>Hostname</th><th>OS</th><th>Status</th><th>Last seen (UTC)</th><th>App</th><th>nmap</th></tr>
+    <tr th:each="n : ${nodes}">
+        <td><a th:href="@{/nodes/{id}(id=${n.id})}" class="mono" th:text="${n.id}">id</a></td>
+        <td th:text="${n.hostname}">host</td>
+        <td th:text="${n.os}">os</td>
+        <td><span th:class="${online[n.id]} ? 'on' : 'off'" th:text="${online[n.id]} ? 'online' : 'offline'">status</span></td>
+        <td class="mono" th:text="${n.lastSeen}">-</td>
+        <td th:text="${n.appVersion}">-</td>
+        <td th:text="${n.nmapVersion}">-</td>
+    </tr>
+    <tr th:if="${nodes.isEmpty()}"><td colspan="7" class="muted">No nodes yet. Run the installer with the enrollment token below.</td></tr>
+</table>
+
+<h2>New scan</h2>
+<form class="row" method="post" action="/scans">
+    <label>Target <input name="target" placeholder="192.168.1.0/24" required pattern="[0-9./]+"></label>
+    <label>Node
+        <select name="nodeId" required>
+            <option th:each="n : ${nodes}" th:value="${n.id}" th:text="${n.hostname + ' (' + n.id + ')'}">node</option>
+        </select>
+    </label>
+    <button type="submit">Run nmap</button>
+</form>
+
+<h2>Scan history</h2>
+<table>
+    <tr><th>Task</th><th>Type</th><th>Node</th><th>Target / upgrade</th><th>Status</th><th>Created (UTC)</th><th>Finished (UTC)</th></tr>
+    <tr th:each="t : ${tasks}">
+        <td><a th:href="@{/tasks/{id}(id=${t.id})}" class="mono" th:text="${#strings.abbreviate(t.id, 13)}">id</a></td>
+        <td th:text="${t.type}">SCAN</td>
+        <td><a th:href="@{/nodes/{id}(id=${t.nodeId})}" class="mono" th:text="${#strings.abbreviate(t.nodeId, 13)}">node</a></td>
+        <td th:text="${t.type.name() == 'SCAN'} ? ${t.target} : ${t.component + ' → ' + t.targetVersion}">target</td>
+        <td><span class="badge" th:classappend="${t.status}" th:text="${t.status}">status</span>
+            <span class="muted" th:if="${t.retryCount > 0}" th:text="'(retry ' + ${t.retryCount} + ')'"></span></td>
+        <td class="mono" th:text="${t.createdAt}">-</td>
+        <td class="mono" th:text="${t.finishedAt}">-</td>
+    </tr>
+    <tr th:if="${tasks.isEmpty()}"><td colspan="7" class="muted">No tasks yet.</td></tr>
+</table>
+
+<h2>Enrolling a new node</h2>
+<p class="muted">Copy the installer bundle (<code>install.sh</code>, <code>node-start-with-rollback.sh</code>, <code>node-1.0.0.jar</code>) to a clean Ubuntu or RHEL host and run it as root. The node JAR already trusts this manager's TLS certificate (so the node can verify the manager); the installer enrolls with the token (so the manager accepts the node).</p>
+<p>Enrollment token: <code th:text="${enrollmentToken}">token</code></p>
+<pre th:text="'sudo ./install.sh --manager https://MANAGER_HOST:8443 --token ' + ${enrollmentToken}"></pre>
+</body>
+</html>

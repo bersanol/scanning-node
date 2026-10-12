@@ -1,0 +1,7 @@
+# A "clean Ubuntu 22.04 host": the base image plus systemd as PID 1, so install.sh runs exactly as
+# on a VM (systemd unit, enable, restart on reboot). Nothing of the node is baked in.
+FROM ubuntu:22.04
+RUN apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q systemd systemd-sysv \
+    && rm -rf /var/lib/apt/lists/*
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]
