@@ -126,9 +126,19 @@ for 22.04 once and host it. The mechanism is unit-tested.
 
 ## 8. Audit history
 
-`INSTALLED`/`REINSTALLED` (written by `install.sh`), `STARTED`, `UPGRADE_*` and `NMAP_UPGRADED`
-are outbox files with a UUID and timestamp, so events recorded offline sync on reconnect. The
-manager deduplicates on `eventId` and shows them per node and globally.
+| Event | Recorded when |
+|---|---|
+| `INSTALLED` / `REINSTALLED` | `install.sh` runs on a host without / with an existing identity |
+| `STARTED` | the agent starts (install, reboot, restart, upgrade); detail has app and nmap versions |
+| `UPGRADE_STARTED` | the old version has verified and swapped in the new JAR, just before exiting |
+| `UPGRADE_COMPLETED` | the new version's first successful heartbeat, so "completed" means it runs and reaches the manager |
+| `UPGRADE_ROLLED_BACK` | the old version is back after 3 failed starts of the new one |
+| `NMAP_UPGRADED` | the nmap package installed; detail is the before → after version |
+
+Each event is a file in the node's `outbox/` with a node-generated UUID and timestamp, written
+before delivery, so events recorded offline sync on reconnect. The manager takes the node ID from
+the authenticated request, skips known `eventId`s (unique in the database), and shows events per
+node and on `/audit`. A failed upgrade is not an event: its task is `FAILED` and nothing changes.
 
 ## 9. Scaling to ~3,000 nodes
 
