@@ -48,3 +48,4 @@ mvn package    # build + 46 tests
 
 ![Dashboard](docs/screenshots/dashboard.png)
 ![Scan result](docs/screenshots/scan-result.png)
+![Audit history: install, start and 1.0.0 → 1.1.0 upgrade on both nodes](docs/screenshots/audit.png)
