@@ -88,22 +88,45 @@ QUEUED → ASSIGNED → RUNNING → DONE | FAILED | INTERRUPTED
 
 ## 6. Remote upgrades
 
-**Application.** The manager serves `releases/`; the dashboard offers each `node-<version>.jar`
-with its SHA-256. The node runs tasks one at a time, so an upgrade waits for the current scan.
-It then:
+### Application
 
-1. Downloads the JAR and verifies the SHA-256 (mismatch → `FAILED`, nothing changes).
-2. Atomically repoints the `current` symlink, writes `upgrade.json = {from, to, SWAPPED}`, queues
-   `UPGRADE_STARTED` and the task result, and exits; systemd starts the new version.
-3. After its first heartbeat, the new version emits `UPGRADE_COMPLETED` and deletes `upgrade.json`.
-4. **Rollback:** the launcher `deploy/node-start-with-rollback.sh` counts starts while `SWAPPED`;
-   after 3 failures it repoints `current` to the old version, which emits `UPGRADE_ROLLED_BACK`.
-   It is a shell script because a broken release cannot roll itself back.
+**Delivery (pull only).** The manager serves `releases/` at `/releases/`; the dashboard lists each
+`node-<version>.jar` with its SHA-256. Clicking upgrade queues a task with the URL, target version
+and checksum, which the node picks up in a heartbeat like a scan.
 
-Identity, config and the outbox live outside `releases/`, so upgrades never touch them. Releases
-`1.0.0` and `1.1.0` are built from the same source.
+**Steps on the node:**
 
-**nmap.** Same task with `component: nmap`: the dashboard offers each `.deb`/`.rpm` in `releases/`;
+1. **Wait.** Tasks run one at a time, so an upgrade never cuts off a running scan.
+2. **Download and verify** to `/opt/scanning-node/releases/<version>/node.jar`. Checksum mismatch:
+   file deleted, task `FAILED`, nothing changes.
+3. **Swap** the `current` symlink in one atomic rename, so it is never broken.
+4. **Record** `upgrade.json = {from, to, phase: SWAPPED}`, queue `UPGRADE_STARTED` and the task
+   result (all on disk).
+5. **Exit 0.** systemd (`Restart=always`) starts the new version.
+6. **Confirm.** After its first successful heartbeat, the new version sees `SWAPPED` to its own
+   version, emits `UPGRADE_COMPLETED` and deletes `upgrade.json`. "Completed" therefore means it
+   runs and reaches the manager.
+
+**Rollback.** systemd starts the node through `deploy/node-start-with-rollback.sh`. While
+`upgrade.json` is `SWAPPED`, it counts starts in `start-attempts`; after 3 failed starts it points
+`current` back to `from` and sets the phase to `ROLLED_BACK`. The old version starts and emits
+`UPGRADE_ROLLED_BACK` after its first heartbeat. It is a shell script because a release that
+crashes on startup cannot roll itself back.
+
+**Preserved.** Identity, config and the outbox live in `/var/lib/scanning-node` and
+`/etc/scanning-node`, outside `releases/`, so the node keeps its ID and undelivered results. Old
+releases stay on disk, which is what makes rollback possible.
+
+**Demonstrated:** 1.0.0 → 1.1.0 on both demo nodes (both built from the same source), and rollback
+from a deliberately broken release.
+
+**Limitations:** a failed upgrade is a `FAILED` task, not an audit event; old releases are never
+cleaned up; the checksum comes from the manager over TLS, so it protects against corrupt or
+tampered downloads but not a compromised manager (production: signed releases).
+
+### nmap
+
+Same task with `component: nmap`: the dashboard offers each `.deb`/`.rpm` in `releases/`;
 the node verifies it and runs `apt-get install -y <file>` / `dnf install -y <file>` (which resolve
 dependencies), then reports the new version with `NMAP_UPGRADED`.
 
@@ -150,11 +173,15 @@ node and on `/audit`. A failed upgrade is not an event: its task is `FAILED` and
 - **Database:** H2 → PostgreSQL (config change); index `last_seen`, `status`, `node_id`.
 - **Storage:** releases on object storage / CDN; raw nmap output in blob storage.
 - **Thundering herd:** randomised backoff (+0–25 %).
+- **Signed releases:** the build signs each JAR and package with an offline key; nodes carry the
+  public key and install only what verifies, so a compromised or impersonated manager cannot push
+  code. Also refuse downgrades and roll out to a few nodes first.
 - **Auth:** per-node mTLS with rotation and revocation; CA-signed manager cert; optional end-to-end
   payload encryption if TLS terminates at a proxy.
 - **Node:** a static Go binary instead of the JVM; same protocol.
 
-**Known weaknesses:** one shared enrollment token (manual rotation); private TLS key committed (demo
+**Known weaknesses:** nodes install whatever the manager sends, as root, so whoever controls (or,
+with the committed key, impersonates) the manager controls the fleet; one shared enrollment token (manual rotation); private TLS key committed (demo
 only); node secret is a plaintext 0600 file; if the manager's database is reset, nodes get 401 until
 `identity.json` is deleted; no rate limit on `/enroll`; IPv4 only; H2; no multi-tenancy; nmap
 upgrade not demonstrated.
